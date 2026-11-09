@@ -4,6 +4,7 @@ import Foundation
 
 final class BridgeAppModel: ObservableObject, XiaomiBluetoothBridgeDelegate {
     let settings = AppSettings()
+    let foregroundApplicationMonitor = ForegroundApplicationMonitor()
     let launchAtLoginManager = LaunchAtLoginManager.shared
     /// Read-only cross-platform catalog. Phase 0 deliberately does not feed
     /// this into the live RC003/DJI adapter selection or connection path.
@@ -126,6 +127,10 @@ final class BridgeAppModel: ObservableObject, XiaomiBluetoothBridgeDelegate {
     func startIfNeeded() {
         guard !started else { return }
         started = true
+        foregroundApplicationMonitor.onChange = { [weak self] in
+            self?.hidMonitor.cancelOrdinaryRepeats()
+        }
+        foregroundApplicationMonitor.start()
         refreshAudioDevices()
         refreshMicrophonePermission()
         activeDeviceProfile = settings.selectedDeviceProfile
@@ -163,6 +168,7 @@ final class BridgeAppModel: ObservableObject, XiaomiBluetoothBridgeDelegate {
 
     func stop() {
         guard started else { return }
+        foregroundApplicationMonitor.stop()
         cancelTestToneIfNeeded(statusMessage: "应用已停止", logReason: "app_stop")
         // Drop any in-flight double-click so a late edge cannot complete an old
         // toggle across teardown.
@@ -843,6 +849,41 @@ final class BridgeAppModel: ObservableObject, XiaomiBluetoothBridgeDelegate {
         let accepted = applyVoiceFunctionMapping()
         applyHIDSettings()
         return accepted
+    }
+
+    func setAutomaticApplicationKeymaps(_ enabled: Bool) {
+        hidMonitor.cancelOrdinaryRepeats()
+        settings.automaticallySwitchApplicationKeymaps = enabled
+    }
+
+    @discardableResult
+    func setButtonBinding(_ binding: ButtonBinding, for button: RemoteButton, applicationBundleIdentifier: String?) -> Bool {
+        if button == .microphone {
+            guard applicationBundleIdentifier == nil else { return false }
+            return setVoiceKeyBinding(binding)
+        }
+        hidMonitor.cancelOrdinaryRepeats()
+        if let applicationBundleIdentifier {
+            settings.setApplicationOverride(binding, for: button, bundleIdentifier: applicationBundleIdentifier)
+        } else {
+            settings.setBinding(binding, for: button)
+        }
+        return true
+    }
+
+    func inheritDefaultBinding(for button: RemoteButton, bundleIdentifier: String) {
+        hidMonitor.cancelOrdinaryRepeats()
+        settings.setApplicationOverride(nil, for: button, bundleIdentifier: bundleIdentifier)
+    }
+
+    func clearApplicationOverrides(bundleIdentifier: String) {
+        hidMonitor.cancelOrdinaryRepeats()
+        settings.clearApplicationOverrides(bundleIdentifier: bundleIdentifier)
+    }
+
+    func removeApplicationKeymap(bundleIdentifier: String) {
+        hidMonitor.cancelOrdinaryRepeats()
+        settings.removeApplicationKeymap(bundleIdentifier: bundleIdentifier)
     }
 
     @discardableResult

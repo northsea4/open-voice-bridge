@@ -275,7 +275,7 @@ private final class XiaomiRemoteBridgeAppDelegate: NSObject, NSApplicationDelega
             hostingController.sizingOptions = []
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 650),
+            contentRect: NSRect(x: 0, y: 0, width: 1080, height: 780),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -284,7 +284,7 @@ private final class XiaomiRemoteBridgeAppDelegate: NSObject, NSApplicationDelega
         window.contentViewController = hostingController
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 800, height: 650)
+        window.minSize = NSSize(width: 1080, height: 780)
         window.setFrameAutosaveName("XiaomiRemoteBridgeSettings")
         window.center()
         return NSWindowController(window: window)

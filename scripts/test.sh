@@ -55,16 +55,16 @@ if ! rg -Fq 'RemoteImageCatalog.prewarm()' \
 fi
 print "PASS SettingsView performs no synchronous remote-image decoding from view bodies"
 
-SETTINGS_SOURCE="$ROOT/Sources/XiaomiRemoteBridgeMac/SettingsView.swift"
-if rg -Fq '启用 (settings.xiaomiRemoteVariant.shortName)' "$SETTINGS_SOURCE"; then
-  print -u2 "FAIL SettingsView renders the Xiaomi variant expression as literal text"
+KEYMAP_SOURCE="$ROOT/Sources/XiaomiRemoteBridgeMac/ApplicationKeymapEditor.swift"
+if rg -Fq '启用 (settings.xiaomiRemoteVariant.shortName)' "$KEYMAP_SOURCE"; then
+  print -u2 "FAIL ApplicationKeymapEditor renders the Xiaomi variant expression as literal text"
   exit 1
 fi
-if ! rg -Fq '启用 \(settings.xiaomiRemoteVariant.shortName) 自定义按键映射' "$SETTINGS_SOURCE"; then
-  print -u2 "FAIL SettingsView does not interpolate the detected Xiaomi variant name"
+if ! rg -Fq '启用 \(settings.xiaomiRemoteVariant.shortName) 自定义按键映射' "$KEYMAP_SOURCE"; then
+  print -u2 "FAIL ApplicationKeymapEditor does not interpolate the detected Xiaomi variant name"
   exit 1
 fi
-print "PASS SettingsView interpolates the detected Xiaomi variant name"
+print "PASS ApplicationKeymapEditor interpolates the detected Xiaomi variant name"
 
 BLUETOOTH_SOURCE="$ROOT/Sources/XiaomiRemoteBridgeMac/XiaomiBluetoothBridge.swift"
 for required_model_gate in \

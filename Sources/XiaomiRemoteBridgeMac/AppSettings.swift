@@ -72,6 +72,14 @@ enum XiaomiRemoteVariant: String, CaseIterable, Identifiable {
     }
 }
 
+struct ApplicationKeymap: Codable, Equatable, Identifiable {
+    let bundleIdentifier: String
+    var displayName: String
+    var overrides: [String: ButtonBinding] = [:]
+
+    var id: String { bundleIdentifier }
+}
+
 final class AppSettings: ObservableObject {
     private enum Keys {
         static let selectedDeviceProfile = "selectedDeviceProfile"
@@ -87,9 +95,28 @@ final class AppSettings: ObservableObject {
         static let localMicInputUID = "localMicInputUID"
         static let doubleClickToggleEnabled = "doubleClickToggleEnabled"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let applicationKeymaps = "applicationKeymapsV1"
+        static let automaticallySwitchApplicationKeymaps = "automaticallySwitchApplicationKeymaps"
     }
 
     private let defaults: UserDefaults
+    private(set) var mappingRevision: UInt64 = 0
+
+    @Published var automaticallySwitchApplicationKeymaps: Bool {
+        didSet {
+            defaults.set(automaticallySwitchApplicationKeymaps, forKey: Keys.automaticallySwitchApplicationKeymaps)
+            mappingRevision &+= 1
+        }
+    }
+
+    @Published private(set) var applicationKeymaps: [ApplicationKeymap] {
+        didSet {
+            if let data = try? JSONEncoder().encode(applicationKeymaps) {
+                defaults.set(data, forKey: Keys.applicationKeymaps)
+            }
+            mappingRevision &+= 1
+        }
+    }
 
     @Published var selectedDeviceProfile: MacDeviceProfile {
         didSet { defaults.set(selectedDeviceProfile.rawValue, forKey: Keys.selectedDeviceProfile) }
@@ -140,7 +167,10 @@ final class AppSettings: ObservableObject {
     }
 
     @Published var buttonBindings: [RemoteButton: ButtonBinding] {
-        didSet { saveBindings() }
+        didSet {
+            saveBindings()
+            mappingRevision &+= 1
+        }
     }
 
     var peripheralIdentifier: UUID? {
@@ -155,6 +185,28 @@ final class AppSettings: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        automaticallySwitchApplicationKeymaps = defaults.object(forKey: Keys.automaticallySwitchApplicationKeymaps) == nil
+            ? true : defaults.bool(forKey: Keys.automaticallySwitchApplicationKeymaps)
+        if let data = defaults.data(forKey: Keys.applicationKeymaps),
+           let decoded = try? JSONDecoder().decode([ApplicationKeymap].self, from: data) {
+            var seen = Set<String>()
+            applicationKeymaps = decoded.compactMap { profile in
+                guard !profile.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      seen.insert(profile.bundleIdentifier).inserted else { return nil }
+                var profile = profile
+                profile.overrides = profile.overrides.filter { key, binding in
+                    guard let button = RemoteButton(rawValue: key), button != .microphone else { return false }
+                    switch binding {
+                    case .hardwareFn: return false
+                    case let .shortcut(chord): return chord.isValid
+                    case .preset: return true
+                    }
+                }
+                return profile
+            }
+        } else {
+            applicationKeymaps = []
+        }
         selectedDeviceProfile = MacDeviceProfile(
             rawValue: defaults.string(forKey: Keys.selectedDeviceProfile) ?? ""
         ) ?? .xiaomiRC003
@@ -201,6 +253,57 @@ final class AppSettings: ObservableObject {
 
     func binding(for button: RemoteButton) -> ButtonBinding {
         buttonBindings[button] ?? .preset(.disabled)
+    }
+
+    /// Only ordinary HID actions consult the foreground application. Voice
+    /// callers continue to use the global lookup above for the entire hold.
+    func binding(for button: RemoteButton, applicationBundleIdentifier: String?) -> ButtonBinding {
+        if automaticallySwitchApplicationKeymaps,
+           let override = applicationOverride(for: button, bundleIdentifier: applicationBundleIdentifier) {
+            return override
+        }
+        return binding(for: button)
+    }
+
+    func applicationKeymap(for bundleIdentifier: String?) -> ApplicationKeymap? {
+        guard let bundleIdentifier else { return nil }
+        return applicationKeymaps.first { $0.bundleIdentifier == bundleIdentifier }
+    }
+
+    func applicationOverride(for button: RemoteButton, bundleIdentifier: String?) -> ButtonBinding? {
+        guard button != .microphone else { return nil }
+        return applicationKeymap(for: bundleIdentifier)?.overrides[button.rawValue]
+    }
+
+    @discardableResult
+    func addApplicationKeymap(bundleIdentifier: String, displayName: String) -> Bool {
+        guard !bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard applicationKeymap(for: bundleIdentifier) == nil else { return true }
+        applicationKeymaps.append(ApplicationKeymap(bundleIdentifier: bundleIdentifier, displayName: displayName))
+        return true
+    }
+
+    func setApplicationOverride(_ binding: ButtonBinding?, for button: RemoteButton, bundleIdentifier: String) {
+        guard button != .microphone,
+              let index = applicationKeymaps.firstIndex(where: { $0.bundleIdentifier == bundleIdentifier })
+        else { return }
+        if let binding {
+            switch binding {
+            case .hardwareFn: return
+            case let .shortcut(chord): guard chord.isValid else { return }
+            case .preset: break
+            }
+        }
+        applicationKeymaps[index].overrides[button.rawValue] = binding
+    }
+
+    func clearApplicationOverrides(bundleIdentifier: String) {
+        guard let index = applicationKeymaps.firstIndex(where: { $0.bundleIdentifier == bundleIdentifier }) else { return }
+        applicationKeymaps[index].overrides = [:]
+    }
+
+    func removeApplicationKeymap(bundleIdentifier: String) {
+        applicationKeymaps.removeAll { $0.bundleIdentifier == bundleIdentifier }
     }
 
     func action(for button: RemoteButton) -> ButtonAction {

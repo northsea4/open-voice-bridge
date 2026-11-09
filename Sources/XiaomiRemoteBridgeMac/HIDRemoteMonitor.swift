@@ -66,6 +66,7 @@ final class HIDRemoteMonitor {
     private var activeDeviceIsSeized = false
     private var activeUsages = Set<UInt16>()
     private var repeatTimers: [UInt16: DispatchSourceTimer] = [:]
+    private var repeats = ButtonRepeatState()
     private var permissionMonitor: DispatchSourceTimer?
     private var voiceKeyIsDown = false
     private var heldVoiceChord = HeldKeyChordLatch()
@@ -131,8 +132,7 @@ final class HIDRemoteMonitor {
         guard suppressed != actionsSuppressed else { return }
         actionsSuppressed = suppressed
         guard suppressed else { return }
-        repeatTimers.values.forEach { $0.cancel() }
-        repeatTimers.removeAll()
+        cancelOrdinaryRepeats()
         releaseHeldVoiceChord()
         // Forget held usages so a later release does not try to re-arm the
         // suppressor, and so no repeat can resume. Injected key/system events are
@@ -143,6 +143,25 @@ final class HIDRemoteMonitor {
 
     init(settings: AppSettings) {
         self.settings = settings
+    }
+
+    /// Keep physical held usages and the voice chord intact. A key held across
+    /// an application change must be released before it can repeat again.
+    func cancelOrdinaryRepeats() {
+        repeats.cancelAll()
+        repeatTimers.values.forEach { $0.cancel() }
+        repeatTimers.removeAll()
+    }
+
+    private func refreshRepeatContext() -> ButtonRepeatContext {
+        let current = ButtonRepeatContext(
+            application: ForegroundApplication.current(),
+            mappingRevision: settings.mappingRevision
+        )
+        if repeats.synchronize(with: current) {
+            cancelOrdinaryRepeats()
+        }
+        return current
     }
 
     static var inputMonitoringAccess: IOHIDAccessType {
@@ -238,8 +257,7 @@ final class HIDRemoteMonitor {
     func stop() {
         permissionMonitor?.cancel()
         permissionMonitor = nil
-        repeatTimers.values.forEach { $0.cancel() }
-        repeatTimers.removeAll()
+        cancelOrdinaryRepeats()
         activeUsages.removeAll()
         releaseHeldVoiceChord()
         forceReleaseVoiceKey()
@@ -353,8 +371,7 @@ final class HIDRemoteMonitor {
         activeDeviceIsSeized = false
         activeUsages.removeAll()
         forceReleaseVoiceKey()
-        repeatTimers.values.forEach { $0.cancel() }
-        repeatTimers.removeAll()
+        cancelOrdinaryRepeats()
         updateStatus("RC003 按键设备已断开")
         AppLogger.shared.write("HID DISCONNECTED")
         // The manager stays open and keeps watching for the RC003 to return, so
@@ -394,9 +411,15 @@ final class HIDRemoteMonitor {
         // ordinary key/mouse/system action and start no repeat.
         guard !actionsSuppressed else { return }
 
+        let context = refreshRepeatContext()
+
         for usage in pressed.sorted() {
             guard let button = RemoteButton.usageMap[usage] else { continue }
-            let binding = settings.binding(for: button)
+            if button != .microphone, refreshRepeatContext() != context { continue }
+            let binding = settings.binding(
+                for: button,
+                applicationBundleIdentifier: context.application?.bundleIdentifier
+            )
             if !activeDeviceIsSeized {
                 eventSuppressor.arm(button: button, edge: .down)
             }
@@ -412,7 +435,7 @@ final class HIDRemoteMonitor {
                 updateStatus("辅助功能权限已失效；已释放遥控器")
                 return
             }
-            startRepeatIfNeeded(usage: usage, button: button, binding: binding)
+            startRepeatIfNeeded(usage: usage, button: button, binding: binding, context: context)
             AppLogger.shared.write("HID BUTTON down=\(button.rawValue) action=\(binding.displayName)")
         }
 
@@ -427,24 +450,31 @@ final class HIDRemoteMonitor {
                 return
             }
             repeatTimers.removeValue(forKey: usage)?.cancel()
+            repeats.release(usage: usage)
         }
     }
 
     private func startRepeatIfNeeded(
         usage: UInt16,
         button: RemoteButton,
-        binding: ButtonBinding
+        binding: ButtonBinding,
+        context: ButtonRepeatContext
     ) {
         let repeatable: Set<RemoteButton> = [
             .up, .down, .left, .right, .back, .volumeUp, .volumeDown,
         ]
         guard repeatable.contains(button), !binding.isDisabled else { return }
 
+        guard context.application != nil, refreshRepeatContext() == context else { return }
+        guard let ticket = repeats.begin(usage: usage) else { return }
+
         let timer = DispatchSource.makeTimerSource(queue: .main)
         let interval: DispatchTimeInterval = button == .back ? .milliseconds(50) : .milliseconds(100)
         timer.schedule(deadline: .now() + .milliseconds(350), repeating: interval)
         timer.setEventHandler { [weak self] in
             guard let self, self.activeUsages.contains(usage) else { return }
+            guard self.refreshRepeatContext() == context,
+                  self.repeats.canDeliver(ticket) else { return }
             guard self.runtimePermissionsAreValid() else {
                 self.releaseForRevokedPermissions()
                 return

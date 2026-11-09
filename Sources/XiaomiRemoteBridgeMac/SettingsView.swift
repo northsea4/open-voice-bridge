@@ -53,8 +53,6 @@ struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var launchAtLogin: LaunchAtLoginManager
     @ObservedObject var updateController: AppUpdateController
-    @State private var selectedRemoteButton: RemoteButton = .ok
-    @State private var recordingRemoteButton: RemoteButton?
     @State private var bridgeHelpPresented = false
     @State private var audioDiagnosticsExpanded = false
     @State private var localFnHelpExpanded = false
@@ -97,8 +95,8 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(
-            minWidth: 760,
-            idealWidth: 860,
+            minWidth: 980,
+            idealWidth: 1080,
             maxWidth: .infinity,
             minHeight: 600,
             idealHeight: 680,
@@ -437,84 +435,7 @@ struct SettingsView: View {
     }
 
     private var rc003MappingTab: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GroupBox {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("启用 \(settings.xiaomiRemoteVariant.shortName) 自定义按键映射", isOn: Binding(
-                    get: { settings.customMappingEnabled },
-                    set: { enabled in
-                        settings.customMappingEnabled = enabled
-                        model.applyHIDSettings()
-                    }
-                ))
-                    statusRow("按键状态", value: model.hidStatus)
-                    Text("优先独占 RC003；系统不允许独占时自动使用兼容监听，并只在遥控器原始报告附近拦截对应的系统按键，避免影响其他键盘。")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            HStack(alignment: .top, spacing: 16) {
-                RemoteControlDiagram(
-                    selectedButton: $selectedRemoteButton,
-                    voiceActive: model.isStreaming,
-                    variant: settings.xiaomiRemoteVariant
-                )
-                    .frame(width: 210)
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("按键动作")
-                                .font(.headline)
-                            Text("点击左侧按键定位；修改后自动保存。")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Button("恢复默认") {
-                            if model.resetButtonBindings() {
-                                selectedRemoteButton = .ok
-                            }
-                        }
-                    }
-
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 7) {
-                                ForEach(settings.xiaomiRemoteVariant.mappableButtons) { button in
-                                    mappingRow(button)
-                                        .id(button.id)
-                                }
-                            }
-                            .padding(.trailing, 4)
-                        }
-                        .onChange(of: selectedRemoteButton) { button in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo(button.id, anchor: .center)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .padding(4)
-        .sheet(item: $recordingRemoteButton) { button in
-            ShortcutRecorderView(
-                button: button,
-                onCancel: { recordingRemoteButton = nil },
-                onClear: {
-                    setBinding(.preset(.disabled), for: button)
-                    recordingRemoteButton = nil
-                },
-                onRecord: { chord in
-                    setBinding(.shortcut(chord), for: button)
-                    recordingRemoteButton = nil
-                }
-            )
-        }
+        ApplicationKeymapEditor(model: model)
     }
 
     private var djiControlsTab: some View {
@@ -544,83 +465,6 @@ struct SettingsView: View {
             Spacer()
             Text("硬件控制")
                 .foregroundColor(.secondary)
-        }
-    }
-
-    private func mappingRow(_ button: RemoteButton) -> some View {
-        HStack(spacing: 10) {
-            Button {
-                selectedRemoteButton = button
-            } label: {
-                HStack(spacing: 9) {
-                    Text(button.shortLabel)
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 42, height: 30)
-                        .background(
-                            selectedRemoteButton == button
-                                ? Color.accentColor
-                                : Color.secondary.opacity(0.14)
-                        )
-                        .foregroundColor(selectedRemoteButton == button ? .white : .primary)
-                        .clipShape(Capsule())
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(button.displayName)
-                        Text(String(format: "HID 0x%02X", button.hidUsage))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: 8)
-
-            Menu {
-                if button == .microphone {
-                    Button("硬件 Fn（默认语音）") { setBinding(.hardwareFn, for: button) }
-                    Button("禁用") { setBinding(.preset(.disabled), for: button) }
-                } else {
-                    ForEach(ButtonAction.allCases) { action in
-                        Button(action.displayName) { setBinding(.preset(action), for: button) }
-                    }
-                }
-                Divider()
-                Button("录制自定义快捷键…") { recordingRemoteButton = button }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(settings.binding(for: button).displayName).lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .frame(width: 208, alignment: .leading)
-            }
-            .menuStyle(.borderlessButton)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-            selectedRemoteButton == button
-                ? Color.accentColor.opacity(0.09)
-                : Color.secondary.opacity(0.055)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(
-                    selectedRemoteButton == button
-                        ? Color.accentColor.opacity(0.45)
-                        : Color.clear,
-                    lineWidth: 1
-                )
-        )
-    }
-
-    private func setBinding(_ binding: ButtonBinding, for button: RemoteButton) {
-        if button == .microphone {
-            _ = model.setVoiceKeyBinding(binding)
-        } else {
-            settings.setBinding(binding, for: button)
         }
     }
 
@@ -889,7 +733,6 @@ struct SettingsView: View {
             model.selectDeviceProfile(.xiaomiRC003)
         case .xiaomiARN9:
             settings.xiaomiRemoteVariant = .arn9
-            if selectedRemoteButton == .tv { selectedRemoteButton = .ok }
             model.selectDeviceProfile(.xiaomiRC003)
         case .djiMic2:
             model.selectDeviceProfile(.djiMic2)
@@ -1197,7 +1040,7 @@ private struct AccentActionButtonStyle: ButtonStyle {
     }
 }
 
-private struct RemoteControlDiagram: View {
+struct RemoteControlDiagram: View {
     @Binding var selectedButton: RemoteButton
     let voiceActive: Bool
     let variant: XiaomiRemoteVariant
