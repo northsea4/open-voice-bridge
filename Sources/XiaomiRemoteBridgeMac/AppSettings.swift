@@ -76,6 +76,27 @@ struct ApplicationKeymap: Codable, Equatable, Identifiable {
     let bundleIdentifier: String
     var displayName: String
     var overrides: [String: ButtonBinding] = [:]
+    var isEnabled: Bool = true
+
+    init(bundleIdentifier: String, displayName: String, overrides: [String: ButtonBinding] = [:], isEnabled: Bool = true) {
+        self.bundleIdentifier = bundleIdentifier
+        self.displayName = displayName
+        self.overrides = overrides
+        self.isEnabled = isEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case bundleIdentifier, displayName, overrides, isEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        bundleIdentifier = try container.decode(String.self, forKey: .bundleIdentifier)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        overrides = try container.decodeIfPresent([String: ButtonBinding].self, forKey: .overrides) ?? [:]
+        // Profiles saved before the individual switch was added stay active.
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+    }
 
     var id: String { bundleIdentifier }
 }
@@ -259,6 +280,7 @@ final class AppSettings: ObservableObject {
     /// callers continue to use the global lookup above for the entire hold.
     func binding(for button: RemoteButton, applicationBundleIdentifier: String?) -> ButtonBinding {
         if automaticallySwitchApplicationKeymaps,
+           applicationKeymap(for: applicationBundleIdentifier)?.isEnabled == true,
            let override = applicationOverride(for: button, bundleIdentifier: applicationBundleIdentifier) {
             return override
         }
@@ -295,6 +317,12 @@ final class AppSettings: ObservableObject {
             }
         }
         applicationKeymaps[index].overrides[button.rawValue] = binding
+    }
+
+    func setApplicationKeymapEnabled(_ enabled: Bool, bundleIdentifier: String) {
+        guard let index = applicationKeymaps.firstIndex(where: { $0.bundleIdentifier == bundleIdentifier }),
+              applicationKeymaps[index].isEnabled != enabled else { return }
+        applicationKeymaps[index].isEnabled = enabled
     }
 
     func clearApplicationOverrides(bundleIdentifier: String) {

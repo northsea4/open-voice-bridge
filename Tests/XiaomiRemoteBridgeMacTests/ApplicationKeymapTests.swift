@@ -134,6 +134,43 @@ struct ApplicationKeymapTests {
         }
     }
 
+    @Test func individualSwitchPreservesOverridesAndPersistsAcrossLaunches() throws {
+        try withSettings { settings, defaults in
+            for id in ["example.player", "example.editor"] {
+                settings.addApplicationKeymap(bundleIdentifier: id, displayName: id)
+                settings.setApplicationOverride(.preset(.escape), for: .ok, bundleIdentifier: id)
+            }
+            let revision = settings.mappingRevision
+            settings.setApplicationKeymapEnabled(false, bundleIdentifier: "example.player")
+            #expect(settings.mappingRevision != revision)
+            #expect(settings.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.returnKey))
+            #expect(settings.applicationOverride(for: .ok, bundleIdentifier: "example.player") == .preset(.escape))
+            #expect(settings.binding(for: .ok, applicationBundleIdentifier: "example.editor") == .preset(.escape))
+            settings.setBinding(.preset(.mouseRightClick), for: .ok)
+            #expect(settings.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.mouseRightClick))
+            let restored = AppSettings(defaults: defaults)
+            #expect(restored.applicationKeymap(for: "example.player")?.isEnabled == false)
+            #expect(restored.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.mouseRightClick))
+            restored.setApplicationKeymapEnabled(true, bundleIdentifier: "example.player")
+            #expect(restored.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.escape))
+            restored.automaticallySwitchApplicationKeymaps = false
+            #expect(restored.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.mouseRightClick))
+        }
+    }
+
+    @Test func profilesSavedBeforeIndividualSwitchRemainEnabled() throws {
+        try withSettings { _, defaults in
+            // Build the binding with the actual codec, then omit only the new field.
+            let profile = ApplicationKeymap(bundleIdentifier: "example.player", displayName: "Player", overrides: ["ok": .preset(.escape)])
+            var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+            json.removeValue(forKey: "isEnabled")
+            defaults.set(try JSONSerialization.data(withJSONObject: [json]), forKey: "applicationKeymapsV1")
+            let restored = AppSettings(defaults: defaults)
+            #expect(restored.applicationKeymap(for: "example.player")?.isEnabled == true)
+            #expect(restored.binding(for: .ok, applicationBundleIdentifier: "example.player") == .preset(.escape))
+        }
+    }
+
     @Test @MainActor func activationChangesCancelOnceEvenForInstancesOfTheSameApplication() {
         let center = NotificationCenter()
         var app: ForegroundApplication? = ForegroundApplication(

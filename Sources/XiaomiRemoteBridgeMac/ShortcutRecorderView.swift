@@ -31,12 +31,12 @@ struct ShortcutRecorderView: View {
 
             if !errorText.isEmpty {
                 Text(errorText)
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.red)
             }
 
             Text("录制只在此窗口打开期间生效；不会记录文字内容，也不会执行脚本或命令。")
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
 
             HStack {

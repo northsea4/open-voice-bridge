@@ -871,6 +871,11 @@ final class BridgeAppModel: ObservableObject, XiaomiBluetoothBridgeDelegate {
         return true
     }
 
+    func setApplicationKeymapEnabled(_ enabled: Bool, bundleIdentifier: String) {
+        hidMonitor.cancelOrdinaryRepeats()
+        settings.setApplicationKeymapEnabled(enabled, bundleIdentifier: bundleIdentifier)
+    }
+
     func inheritDefaultBinding(for button: RemoteButton, bundleIdentifier: String) {
         hidMonitor.cancelOrdinaryRepeats()
         settings.setApplicationOverride(nil, for: button, bundleIdentifier: bundleIdentifier)

@@ -117,7 +117,7 @@ struct SettingsView: View {
                         .fill(activeDeviceTint)
                         .frame(width: 7, height: 7)
                     Text(activeDeviceSummary)
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
             }
@@ -289,10 +289,10 @@ struct SettingsView: View {
                     .disabled(!model.canSendTestTone)
             }
             Text(model.testToneStatus)
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
             Text("应用只把 RC003 语音写到所选设备，不修改系统默认输入或输出；测试音在内存生成、低音量、固定频率且不落盘，RC003 语音进行中时不可用。")
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
 
             Divider()
@@ -312,7 +312,7 @@ struct SettingsView: View {
                     )
                     statusRow("播放节点", value: model.audioPathSnapshot.playbackState.displayText)
                     Text("“已完成到输出节点”只代表本应用播放器完成回执；回执超时不会被伪装成成功。")
-                        .font(.footnote)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     statusRow("第三方输入法", value: "状态未知（系统未提供读取/提交回执）")
                 }
@@ -360,7 +360,7 @@ struct SettingsView: View {
                     "才会把本机麦克风转发到上面所选的语音输出（如 BlackHole）。松开 Fn 立即停止；" +
                     "RC003 语音始终优先。不录音、不上传，不修改系统默认音频。"
                 )
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .padding(.top, 4)
             }
@@ -384,7 +384,7 @@ struct SettingsView: View {
                 }
             }
             Text("关闭只影响下次登录，不会退出当前应用。")
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
             Divider()
             statusRow("当前版本", value: updateController.currentVersionText)
@@ -397,7 +397,7 @@ struct SettingsView: View {
             }
             .disabled(!updateController.canCheckForUpdates)
             Text("每天最多检查一次。发现新版本后由你确认安装，不会静默更新，也不发送系统画像或使用数据。")
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
     }
@@ -408,7 +408,7 @@ struct SettingsView: View {
             statusRow("连接状态", value: model.djiMic2Status)
             if model.djiMic2InputDevices.isEmpty {
                 Text("当前没有 CoreAudio 可用的 DJI Mic 2 输入。仅在蓝牙列表中已配对，不等于已经向 macOS 提供麦克风端点。")
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             } else {
                 ForEach(model.djiMic2InputDevices) { device in
@@ -420,7 +420,7 @@ struct SettingsView: View {
                 Button("打开系统声音输入设置") { model.openSoundInputSettings() }
             }
             Text("DJI Mic 2 在此模式下作为 macOS 系统麦克风使用。请在系统声音设置或目标输入法中选择它；本应用不修改默认输入，也不经过 BlackHole。")
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
     }
@@ -448,7 +448,7 @@ struct SettingsView: View {
             Section(header: Text("映射状态")) {
                 statusRow("可自定义动作", value: "0")
                 Text("目前没有捕获到 DJI Mic 2 在 macOS 上输出可靠 HID 按键事件的真机证据，因此不会伪装成 RC003 的 13 键映射。")
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
         }
@@ -459,7 +459,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(detail)
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
             Spacer()
@@ -474,7 +474,7 @@ struct SettingsView: View {
                 if settings.selectedDeviceProfile == .xiaomiRC003 {
                     settingsCard("RC003 权限状态", systemImage: "lock.shield") {
                         Text("按键映射需要输入监控和辅助功能；Mac Fn 默认开启，但只在按住物理 Fn 时采集并需要麦克风权限。")
-                            .font(.footnote)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
 
                         permissionStatusRow(
@@ -537,7 +537,7 @@ struct SettingsView: View {
                             actionTitle: "打开声音设置"
                         ) { model.openSoundInputSettings() }
                         Text("此模式不需要本应用的蓝牙、输入监控或辅助功能权限。真正录音的输入法或应用需要自己的麦克风权限。")
-                            .font(.footnote)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -545,7 +545,7 @@ struct SettingsView: View {
                 settingsCard("隐私与诊断", systemImage: "doc.text.magnifyingglass") {
                     HStack(alignment: .center, spacing: 12) {
                         Text("日志只记录连接、状态和失败类别，不记录语音内容、蓝牙地址或外设 UUID。")
-                            .font(.footnote)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                         Spacer()
                         Button("在 Finder 中显示日志") { model.openLogFolder() }
@@ -568,11 +568,11 @@ struct SettingsView: View {
                             .font(.body.weight(.medium))
                         Spacer()
                         Text("当前设备可在顶部手动切换")
-                            .font(.caption)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                     Text("目录展示已适配和计划支持的设备；模块存在不等于当前平台已实现，也不代表设备已连接。")
-                        .font(.footnote)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
 
@@ -600,12 +600,12 @@ struct SettingsView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(profile.vendor) · \(profile.model) · \(profile.id)")
-                            .font(.caption)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                     Spacer()
                     Text(profile.support.status.displayName)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 12).weight(.semibold))
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .foregroundColor(deviceProfileTint(profile))
@@ -614,7 +614,7 @@ struct SettingsView: View {
                 }
 
                 Text(profile.support.notes)
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
 
                 Divider()
@@ -627,7 +627,7 @@ struct SettingsView: View {
                             .frame(width: 64, alignment: .leading)
                             .foregroundColor(.secondary)
                         Text(platform.notes)
-                            .font(.footnote)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -641,14 +641,14 @@ struct SettingsView: View {
                             .frame(width: 64, alignment: .leading)
                             .foregroundColor(.secondary)
                         Text(transport.notes)
-                            .font(.footnote)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                 }
 
                 catalogSectionTitle("设备能力")
                 Text(profile.capabilities.map(\.displayName).joined(separator: " · "))
-                    .font(.footnote)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
         }
@@ -656,7 +656,7 @@ struct SettingsView: View {
 
     private func catalogSectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.caption.weight(.semibold))
+            .font(.system(size: 12).weight(.semibold))
             .foregroundColor(.secondary)
     }
 
@@ -784,13 +784,13 @@ struct SettingsView: View {
                 "可在“桥接已启用/已停用”之间切换一次。停用后 RC003 不再向 Mac 注入普通按键、" +
                 "Fn/🌐︎、语音或音频；再次双击或点击桥接按钮即可恢复。长按语音不受影响，也不会增加等待延迟。"
             )
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
             Text(
                 "运行时状态不会保存，退出并重开应用会恢复为已启用。若关闭自定义按键映射，" +
                 "或系统不允许独占读取，停用时普通按键仍可能走 macOS 原生行为。"
             )
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
         .padding(16)
@@ -803,7 +803,7 @@ struct SettingsView: View {
                 .fill(tint)
                 .frame(width: 7, height: 7)
             Text(text)
-                .font(.caption.weight(.semibold))
+                .font(.system(size: 12).weight(.semibold))
         }
         .foregroundColor(tint)
         .padding(.horizontal, 9)
@@ -874,7 +874,7 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.caption)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 Text(value)
                     .font(.callout.weight(.semibold))
@@ -911,11 +911,11 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     Spacer(minLength: 0)
                     Text(value)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 12).weight(.semibold))
                         .lineLimit(1)
                 }
                 ProgressView(value: level)
@@ -956,11 +956,11 @@ struct SettingsView: View {
                     Text(title)
                         .font(.callout.weight(.medium))
                     Text(status)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 12).weight(.semibold))
                         .foregroundColor(tint)
                 }
                 Text(detail)
-                    .font(.caption)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
             Spacer()
@@ -1011,14 +1011,14 @@ struct SettingsView: View {
                 Text(title)
                 Spacer()
                 Text(status)
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(level.isRecent ? .secondary : .secondary.opacity(0.7))
             }
             ProgressView(value: level.meterValue)
                 .progressViewStyle(.linear)
                 .accentColor(level.isRecent ? .accentColor : .secondary)
             Text(detail)
-                .font(.footnote)
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
         .padding(.vertical, 2)
@@ -1061,7 +1061,7 @@ struct RemoteControlDiagram: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color.secondary.opacity(0.10))
                         Text("实物图资源缺失")
-                            .font(.caption)
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
 
@@ -1080,7 +1080,8 @@ struct RemoteControlDiagram: View {
             )
 
             Text("点击实物按键定位映射；包括语音键在内均可自定义快捷键。")
-                .font(.system(size: 10))
+                .font(.system(size: 12))
+                .fixedSize(horizontal: false, vertical: true)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
